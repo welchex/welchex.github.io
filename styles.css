@@ -1,0 +1,14 @@
+body {
+  margin: 0;
+  height: 100vh;
+  background: #000;       /* black background */
+  color: #0f0;            /* green text */
+  font-family: monospace; /* typewriter font */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#terminal {
+  width: 90%;
+  max-width: 800px;
+}
