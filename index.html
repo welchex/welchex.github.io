@@ -2,105 +2,173 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>My Retro Terminal</title>
+  <title>Retro Terminal Shell</title>
   <style>
-    /* Full‑screen black, orange text, monospace */
-    body, html { margin:0; padding:0; width:100%; height:100%; background:#000; color:#f90; font-family: monospace; }
+    body, html {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      background: #000; color: #f90;
+      font-family: monospace;
+    }
     /* Loading screen */
     #loading {
-      display:flex; align-items:center; justify-content:center;
-      position:absolute; top:0; left:0; width:100%; height:100%; 
-      background:black; font-size:1.5em;
+      padding: 1em;
+      box-sizing: border-box;
+      height: 100%; overflow-y: auto;
     }
-    /* Hidden until after load */
-    .hidden { display:none; }
-    /* Terminal area */
+    /* Terminal shell (hidden initially) */
     #terminal {
-      padding:1em;
-      height:100%; overflow-y:auto;
-      box-sizing:border-box;
+      display: none;
+      padding: 1em;
+      box-sizing: border-box;
+      height: 100%; overflow-y: auto;
     }
-    .prompt { color:#f90; }
+    .prompt { color: #f90; }
     #input {
-      background:none; border:none; color:inherit;
-      outline:none; width:90%;
-      font-family:inherit; font-size:1em;
+      background: none; border: none;
+      color: inherit; outline: none;
+      font-family: inherit; font-size: 1em;
+      width: 90%;
     }
     pre { white-space: pre-wrap; }
   </style>
 </head>
 <body>
+
   <!-- Loading screen -->
-  <div id="loading">┌──( loading... )</div>
+  <div id="loading"></div>
 
   <!-- Terminal shell -->
-  <div id="terminal" class="hidden">
+  <div id="terminal">
     <div id="output"></div>
     <div id="prompt-line">
-      <span class="prompt">guest@site:~$&nbsp;</span>
-      <input id="input" autocomplete="off" autofocus />
+      <span class="prompt" id="prompt-text">user1@site:~$&nbsp;</span>
+      <input id="input" autocomplete="off" />
     </div>
   </div>
 
   <script>
-    // 1) Show loading for 2s, then reveal terminal
+    // Configuration lines for the loading screen
+    const configLines = [
+      "Initializing system modules...",
+      "Loading configurations...",
+      "Starting services...",
+      "Checking dependencies...",
+      "Configuration complete."
+    ];
+
+    // ASCII banner to show after loading
+    const banner = `
+@@@  @@@  @@@  @@@@@@@@  @@@        @@@@@@@   @@@@@@   @@@@@@@@@@   @@@@@@@@
+@@@  @@@  @@@  @@@@@@@@  @@@       @@@@@@@@  @@@@@@@@  @@@@@@@@@@@  @@@@@@@@
+@@!  @@!  @@!  @@!       @@!       !@@       @@!  @@@  @@! @@! @@!  @@!     
+!@!  !@!  !@!  !@!       !@!       !@!       !@!  @!@  !@! !@! !@!  !@!     
+@!!  !!@  @!@  @!!!:!    @!!       !@!       @!@  !@!  @!! !!@ @!@  @!!!:!  
+!@!  !!!  !@!  !!!!!:    !!!       !!!       !@!  !!!  !@!   ! !@!  !!!!!:  
+!!:  !!:  !!:  !!:       !!:       :!!       !!:  !!!  !!:     !!:  !!:     
+:!:  :!:  :!:  :!:        :!:      :!:       :!:  !:!  :!:     :!:  :!:     
+ ::: :: :::    :: ::::   :: ::::   ::: :::  ::::: ::  :::     ::    :: ::::
+  :: :  : :    : :: ::   : :: : :   :: :: :   : :  :    :      :    : :: ::
+`;
+
+    // User state & available pages
+    let currentUser = 'user1';
+    const pages = {
+      user1: ['about', 'contact', 'competitions'],
+      user2: ['gallery', 'music']
+    };
+
+    // Typewriter for loading screen
     window.addEventListener('load', () => {
-      setTimeout(()=>{
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('terminal').classList.remove('hidden');
+      const loading = document.getElementById('loading');
+      let lineIndex = 0;
+
+      function typeLine() {
+        if (lineIndex >= configLines.length) return;
+        const lineEl = document.createElement('div');
+        loading.appendChild(lineEl);
+
+        let charIndex = 0;
+        function typeChar() {
+          if (charIndex < configLines[lineIndex].length) {
+            lineEl.textContent += configLines[lineIndex][charIndex++];
+            setTimeout(typeChar, 50);
+          } else {
+            lineIndex++;
+            setTimeout(typeLine, 300);
+          }
+        }
+        typeChar();
+      }
+
+      typeLine();
+
+      // After 5 seconds, switch to shell with banner
+      setTimeout(() => {
+        loading.style.display = 'none';
+        const terminal = document.getElementById('terminal');
+        terminal.style.display = 'block';
+        const out = document.getElementById('output');
+        out.innerHTML = `<pre>${escapeHtml(banner)}</pre>`;
         focusInput();
-      }, 2000);
+      }, 5000);
     });
+
+    // Focus helper
     function focusInput() {
-      const input = document.getElementById('input');
-      input.focus();
+      document.getElementById('input').focus();
     }
 
-    // 2) Handle Enter key
-    document.getElementById('input')
-      .addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-          const cmd = e.target.value.trim();
-          e.target.value = '';
-          runCommand(cmd);
-        }
-      });
+    // Escape HTML
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+    }
 
-    // 3) Command processor
+    // Command handling
+    document.getElementById('input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const cmd = e.target.value.trim();
+        e.target.value = '';
+        runCommand(cmd);
+      }
+    });
+
     function runCommand(cmd) {
       const out = document.getElementById('output');
-      // echo prompt + command
-      out.innerHTML += `<div><span class="prompt">guest@site:~$</span> ${cmd}</div>`;
-      // built‑in commands
-      if (cmd === 'ls') {
-        out.innerHTML += '<div>about  projects  contact</div>';
+      out.innerHTML += `<div><span class="prompt">${currentUser}@site:~$</span> ${escapeHtml(cmd)}</div>`;
+
+      if (cmd === 'clear') {
+        out.innerHTML = `<pre>${escapeHtml(banner)}</pre>`;
+      }
+      else if (cmd === 'ls' || cmd === 'dir') {
+        out.innerHTML += `<div>${pages[currentUser].join('  ')}</div>`;
+      }
+      else if (cmd === 'su') {
+        currentUser = currentUser === 'user1' ? 'user2' : 'user1';
+        document.getElementById('prompt-text').textContent = currentUser + '@site:~$\u00A0';
+        out.innerHTML += `<div>Switched to ${currentUser}</div>`;
       }
       else if (cmd.startsWith('cat ')) {
         const file = cmd.split(' ')[1];
-        if (['about','projects','contact'].includes(file)) {
+        if (pages[currentUser].includes(file)) {
           fetch(file + '.html')
             .then(r => r.text())
-            .then(text => out.innerHTML += `<pre>${escapeHtml(text)}</pre>`);
+            .then(text => {
+              out.innerHTML += `<pre>${escapeHtml(text)}</pre>`;
+              out.parentElement.scrollTop = out.parentElement.scrollHeight;
+            });
         } else {
-          out.innerHTML += `<div>cat: ${file}: No such file or directory</div>`;
+          out.innerHTML += `<div>cat: ${file}: No such file</div>`;
         }
       }
-      else if (cmd === '' ) {
-        // do nothing on blank
+      else if (cmd !== '') {
+        out.innerHTML += `<div>Command not found: ${escapeHtml(cmd)}</div>`;
       }
-      else {
-        out.innerHTML += `<div>Command not found: ${cmd}</div>`;
-      }
-      // scroll down & refocus
+
       out.parentElement.scrollTop = out.parentElement.scrollHeight;
       focusInput();
-    }
-
-    // 4) Sanitize fetched HTML
-    function escapeHtml(str) {
-      return str.replace(/&/g,'&amp;')
-                .replace(/</g,'&lt;')
-                .replace(/>/g,'&gt;');
     }
   </script>
 </body>
