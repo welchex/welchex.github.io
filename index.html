@@ -3,13 +3,105 @@
 <head>
   <meta charset="UTF-8">
   <title>My Retro Terminal</title>
-  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Full‑screen black, orange text, monospace */
+    body, html { margin:0; padding:0; width:100%; height:100%; background:#000; color:#f90; font-family: monospace; }
+    /* Loading screen */
+    #loading {
+      display:flex; align-items:center; justify-content:center;
+      position:absolute; top:0; left:0; width:100%; height:100%; 
+      background:black; font-size:1.5em;
+    }
+    /* Hidden until after load */
+    .hidden { display:none; }
+    /* Terminal area */
+    #terminal {
+      padding:1em;
+      height:100%; overflow-y:auto;
+      box-sizing:border-box;
+    }
+    .prompt { color:#f90; }
+    #input {
+      background:none; border:none; color:inherit;
+      outline:none; width:90%;
+      font-family:inherit; font-size:1em;
+    }
+    pre { white-space: pre-wrap; }
+  </style>
 </head>
 <body>
-  <div id="terminal"></div>
-  <!-- Load jQuery and jQuery Terminal from the internet -->
-  <script src="https://unpkg.com/jquery"></script>
-  <script src="https://unpkg.com/jquery.terminal/js/jquery.terminal.min.js"></script>
-  <script src="script.js"></script>
+  <!-- Loading screen -->
+  <div id="loading">┌──( loading... )</div>
+
+  <!-- Terminal shell -->
+  <div id="terminal" class="hidden">
+    <div id="output"></div>
+    <div id="prompt-line">
+      <span class="prompt">guest@site:~$&nbsp;</span>
+      <input id="input" autocomplete="off" autofocus />
+    </div>
+  </div>
+
+  <script>
+    // 1) Show loading for 2s, then reveal terminal
+    window.addEventListener('load', () => {
+      setTimeout(()=>{
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('terminal').classList.remove('hidden');
+        focusInput();
+      }, 2000);
+    });
+    function focusInput() {
+      const input = document.getElementById('input');
+      input.focus();
+    }
+
+    // 2) Handle Enter key
+    document.getElementById('input')
+      .addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          const cmd = e.target.value.trim();
+          e.target.value = '';
+          runCommand(cmd);
+        }
+      });
+
+    // 3) Command processor
+    function runCommand(cmd) {
+      const out = document.getElementById('output');
+      // echo prompt + command
+      out.innerHTML += `<div><span class="prompt">guest@site:~$</span> ${cmd}</div>`;
+      // built‑in commands
+      if (cmd === 'ls') {
+        out.innerHTML += '<div>about  projects  contact</div>';
+      }
+      else if (cmd.startsWith('cat ')) {
+        const file = cmd.split(' ')[1];
+        if (['about','projects','contact'].includes(file)) {
+          fetch(file + '.html')
+            .then(r => r.text())
+            .then(text => out.innerHTML += `<pre>${escapeHtml(text)}</pre>`);
+        } else {
+          out.innerHTML += `<div>cat: ${file}: No such file or directory</div>`;
+        }
+      }
+      else if (cmd === '' ) {
+        // do nothing on blank
+      }
+      else {
+        out.innerHTML += `<div>Command not found: ${cmd}</div>`;
+      }
+      // scroll down & refocus
+      out.parentElement.scrollTop = out.parentElement.scrollHeight;
+      focusInput();
+    }
+
+    // 4) Sanitize fetched HTML
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;')
+                .replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;');
+    }
+  </script>
 </body>
 </html>
